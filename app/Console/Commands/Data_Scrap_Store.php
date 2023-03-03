@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\MyArchive7z;
 use App\Spiders\Data_Scrap;
+use Archive7z\Archive7z;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RoachPHP\Roach;
 use function Nette\Schema\Expect;
 
@@ -34,69 +36,82 @@ class Data_Scrap_Store extends Command
     {
 
         $links = Roach::collectSpider(Data_Scrap::class);
-//        $url = "https://ec.europa.eu/eurostat/estat-navtree-portlet-prod/BulkDownloadListing?sort=1&dir=comext%2FCOMEXT_DATA%2FPRODUCTS";
-//        $allLinks = Roach::collectSpider(Data_Scrap::class,
-//            new Overrides(startUrls: [$url]));
-        $storePath = "Product";
+        if ($links != null) {
+            $links = $links[0]['data'];
+            $links = [$links[0], $links[1], $links[2], $links[13], $links[14]
+                , $links[15], $links[16], $links[17], $links[18], $links[19]
+                , $links[20], $links[26], $links[39], $links[52], $links[65]];
 
-        if (!Storage::exists($storePath)) {
-            Storage::makeDirectory($storePath);
+            //Remove Array
+            unset($links[12], $links[25], $links[38], $links[51],
+                $links[64], $links[77], $links[90], $links[103],
+                $links[116], $links[129], $links[142], $links[155],
+                $links[168], $links[181], $links[194], $links[207],
+                $links[220], $links[233], $links[246], $links[259],
+                $links[272], $links[285], $links[298], $links[311],
+                $links[324], $links[337], $links[350], $links[363],
+                $links[376], $links[389], $links[402], $links[415],
+                $links[428], $links[441], $links[452], $links[454],
+                $links[467], $links[480], $links[481], $links[482],
+                $links[483], $links[484], $links[485], $links[486]);
+
+
+            $storePath = "euro-state";
+            if (!Storage::exists($storePath)) {
+                Storage::makeDirectory($storePath);
+            }
+            $this->info("Download Zip File ...");
+            $progress = $this->output->createProgressBar(count($links));
+            $progress->advance();
+            $this->newLine();
+            $downloadedFiles = null;
+            foreach ($links as $link) {
+                $response = Http::timeout(300)->retry(100, 4)->get($link);
+                $filename = pathinfo(urldecode($link), PATHINFO_BASENAME);
+                $con = $response->body();
+                $path = $storePath . "/" . $filename;
+
+                $downloadedFiles[] = Storage::path($path);
+                Storage::put($path, $con);
+            }
+
+
+            //Extract Zip File
+            $this->info("Zip File Extract ...");
+            $progress = $this->output->createProgressBar(count($downloadedFiles));
+            $progress->advance();
+            $this->newLine();
+            foreach ($downloadedFiles as $file) {
+                $obj = new Archive7z($file);
+                foreach ($obj->getEntries() as $entry) {
+                    $entry->extractTo(Storage::path($storePath));
+                }
+            }
+
+
+            //Rename .dat to .csv file
+            $this->info('Rename .dat to .csv...');
+            $progress = $this->output->createProgressBar(count($downloadedFiles));
+            $progress->advance();
+            foreach ($downloadedFiles as $file) {
+                $info = pathinfo($file);
+                $fileName = $info['filename'];
+                $year = substr(strrchr($fileName, 'full'), 4, -2);
+                $month = substr(strrchr($fileName, 'full'), -2);
+                $storeCSVPath = "Product/$year/$month";
+                if (!Storage::exists($storeCSVPath)) {
+                    Storage::makeDirectory($storeCSVPath, 0777, true, true);
+                }
+                rename("storage/app/euro-state/$fileName.dat", "storage/app/Product/$year/$month/$fileName.csv");
+            }
+
+
+            $this->newLine();
+            $this->info("Done!");
+            return Command::SUCCESS;
+        } else {
+            $this->info('No Link Found...');
         }
-
-//        $this->info("Get Zip File ...");
-        $this->info("Link Collecting...");
-        $progress = $this->output->createProgressBar(count($links));
-
-        //  $file = fopen(Storage::path($storePath . "/" . "unexe.csv"), 'w+');
-        $header = ['DECLARANT', 'DECLARANT_ISO', 'PARTNER', 'PARTNER_ISO', 'TRADE_TYPE', 'PRODUCT_NC',
-            'PRODUCT_SITC', 'PRODUCT_CPA2002', 'PRODUCT_CPA2008', 'PRODUCT_CPA2_1', 'PRODUCT_BEC',
-            'PRODUCT_BEC5', 'PRODUCT_SECTION', 'FLOW', 'STAT_REGIME', 'SUPP_UNIT', 'PERIOD',
-            'VALUE_IN_EUROS', 'QUANTITY_IN_KG', 'SUP_QUANTITY'];
-//        fputcsv($file, $header);
-        $final_link = $links[0]['data'][0];
-        foreach ($final_link as $item) {
-            //Year/Number/Csv Get
-            $str = substr(strrchr($item, 'll'), 1, -5);
-            $year = Str::limit($str, 4);
-            $number = substr(strrchr($item, 'llfull'), 5, -3);
-            $csv = substr(strrchr($item, '%2F'), 3, -3);
-
-            $yearstorePath = "Product/$year/$number";
-
-//            if (!Storage::exists($yearstorePath)) {
-//                Storage::makeDirectory($yearstorePath);
-//            }
-        // $file = fopen(Storage::path($yearstorePath . "/" . $csv . ".csv"), 'w+');
-
-            //  Download Zip File
-//            $url = $item;
-//            $response = Http::timeout(300)->retry(4, 100)->get($url);
-//            Storage::put("Zip_file/$csv.zip", $response->getBody());
-
-
-
-        }
-
-//        dd($file);
-        $this->info("Zip File Download ...");
-        $this->info("Done ...");
-        $progress = $this->output->createProgressBar(count($final_link));
-        $progress->advance();
-
-
-        //Extract Zip File
-        $this->info("Zip File Extract ...");
-
-        $files = glob(storage_path("app/Zip_file"));
-        foreach ($files as $key => $value) {
-            print_r($value);
-            $relativeName = basename($value);
-            //  $zip->addFile($value, $relativeName);
-        }
-
-
-        $this->newLine();
-        $this->info("Done!");
-        return Command::SUCCESS;
     }
+
 }

@@ -34,7 +34,7 @@ class Data_Scrap extends BasicSpider
         StatsCollectorExtension::class,
     ];
 
-    public int $concurrency = 2;
+    public int $concurrency = 10;
 
     public int $requestDelay = 1;
 
@@ -45,10 +45,8 @@ class Data_Scrap extends BasicSpider
     {
 
 
-        $data = $response->filter('table')->each(function ($item){
-            return $item->filter('tr > td:last-child a')->each(function ($item2){
-                    return $item2->link()->getUri();
-            });
+        $data = $response->filter('table > tr > td:last-child a')->each(function ($item){
+                    return $item->link()->getUri();
         });
         $data = array_values(array_unique($data));
         yield $this->item([
