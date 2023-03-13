@@ -37,6 +37,7 @@ class Swagger_Api extends Command
         $Commodity = "https://api.uktradeinfo.com/Commodity/{$id}";
         $Date = "https://api.uktradeinfo.com/Date/{$id}";
         $Trader = "https://api.uktradeinfo.com/Trader/{$id}";
+        $this->info('Collect Data...');
         $response = Http::get($url);
         $rers_commo = Http::get($Commodity);
         $rers_date = Http::get($Date);
@@ -48,9 +49,8 @@ class Swagger_Api extends Command
             $Commodity_data = json_decode($Commodity_json, true);
             $Date_data = json_decode($Date_json, true);
             $Trader_data = json_decode($Trader_json, true);
-
-//            dd($Commodity_data,$Date_data,$Trader_data);
-unset($Commodity_data['@odata.context'],$Date_data['@odata.context'],$Trader_data['@odata.context']);
+            dd($Commodity_data,$Date_data,$Trader_data);
+            unset($Commodity_data['@odata.context'], $Date_data['@odata.context'], $Trader_data['@odata.context']);
             //Json to .csv convert
 
             //Commodity
@@ -97,36 +97,8 @@ unset($Commodity_data['@odata.context'],$Date_data['@odata.context'],$Trader_dat
             fclose($trader_csvFile);
 
             $this->info('Data received from API:');
-//            $this->line($Commodity_data);
-//            $this->line($Date_data);
-//            $this->line($Trader_data);
-//            dd($Commodity_data, $Date_data, $Trader_data);
+
         }
-
-
-//        if ($response->getStatusCode() == 200) {
-//            $json = $response->getBody()->getContents();
-//            $data = json_decode($json, true);
-//            $array = collect($data)->toArray();
-//            $csvFile = fopen(Storage::path("output.csv"), 'w+');
-//            $header = ['TraderId', 'CommodityId', 'MonthId'];
-//            fputcsv($csvFile, $header);
-//            foreach ($array['value'] as $row) {
-//                fputcsv($csvFile, $row);
-//            }
-//            fclose($csvFile);
-//
-//            $this->info('Data received from API:');
-//            $this->line($json);
-//        } else {
-//            $this->error('Error: API call failed with status code ' . $response->getStatusCode());
-//        }
-
-//        $json = $url->getBody()->getContents();
-//        $data = json_decode($json, true);
-//        dd($url);
-//        $client = new Client();
-//        $response = $client->get($url);
 
 
         return Command::SUCCESS;
